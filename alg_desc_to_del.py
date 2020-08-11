@@ -58,25 +58,32 @@ class DescDel:
     def train(self, iters, init=None):
         """In initial round """
         if init:
-            model = init
+            model = self.model_class(init.theta, l2_penalty=self.l2_penalty)
         else:
             par = np.random.normal(0,1, self.datadim)
             par = par/(np.sqrt(np.sum(np.power(par, 2))))
             model = self.model_class(par, l2_penalty=self.l2_penalty)
+
         for _ in range(iters):
             model.proj_gradient_step(self.X_u, self.y_u)
+
         return model
 
     def publish(self, model):
         noise = np.random.normal(0, self.sigma, self.datadim)
-        model.theta += noise
-        return model
+        theta = model.theta + noise
+        return self.model_class(theta, l2_penalty=self.l2_penalty)
 
     def update_data_set(self, update):
         """Update X_u, y_u with update (+, x, y) or (-, index, x, y)."""
+        self.X_u = self.X_u.reset_index(drop=True)
+        self.y_u = self.y_u.reset_index(drop=True)
         if update[0] == '-':
-            self.X_u.drop(update[1])
-            self.y_u.drop(update[1])
+            try:
+                self.X_u.drop(update[1])
+                self.y_u.drop(update[1])
+            except:
+                pdb.set_trace()
         if update[0] == '+':
             self.X_u.append(update[1])
             self.y_u.append(update[2])

@@ -75,13 +75,13 @@ def clean_communities(scale_and_center=True, intercept=True, normalize=True):
     # convert y's to binary predictions on whether the neighborhood is
     # especially violent
     y = [np.sign(s - q_y) for s in y]
-    X = df.iloc[:, 0:122]
     # hot code categorical variables
     sens_df = pd.read_csv('dataset/communities_protected.csv')
     sens_cols = [str(c) for c in sens_df.columns if sens_df[c][0] == 1]
     print('sensitive features: {}'.format(sens_cols))
     sens_dict = {c: 1 if c in sens_cols else 0 for c in df.columns}
     df, _ = one_hot_code(df, sens_dict)
+    X = df.iloc[:, 0:122]
     if scale_and_center:
         X = center(X)
         X = standardize(X)
@@ -96,7 +96,7 @@ def clean_communities(scale_and_center=True, intercept=True, normalize=True):
 
 
 # num_sens in 1:17
-def clean_lawschool():
+def clean_lawschool(scale_and_center=True, intercept=True, normalize=True):
     """Clean law school data set."""
     # Data Cleaning and Import
     df = pd.read_csv('dataset/lawschool.csv')
@@ -106,7 +106,7 @@ def clean_lawschool():
     # remove y from df
     df_y = df['bar1']
     df = df.drop('bar1', 1)
-    y = [int(a == 'P') for a in df_y]
+    y = [2*int(a == 'P')-1 for a in df_y]
     y = pd.Series(y)
     sens_df = pd.read_csv('dataset/lawschool_protected.csv')
     sens_cols = [str(c) for c in sens_df.columns if sens_df[c][0] == 1]
@@ -128,7 +128,16 @@ def clean_lawschool():
 
     df.index = range(len(df))
     x_prime.index = range(len(x_prime))
-    return df, x_prime, pd.Series(y)
+    X = df
+    if scale_and_center:
+        X = center(X)
+        X = standardize(X)
+    if intercept:
+        X = add_intercept(X)
+    if normalize:
+        X = normalize_rows(X)
+
+    return X, pd.Series(y)
 
 
 def clean_synthetic(num_sens):
@@ -142,27 +151,27 @@ def clean_synthetic(num_sens):
     return df, x_prime, y
 
 
-def clean_adult():
+def clean_adult(scale_and_center=True, intercept=True, normalize=True):
     df = pd.read_csv('dataset/adult.csv')
     df = df.dropna()
     # binarize and remove y value
-    df['income'] = df['income'].map({' <=50K': 0, ' >50K': 1})
+    df['income'] = df['income'].map({' <=50K': -1, ' >50K': 1})
     y = df['income']
     df = df.drop('income', 1)
     # hot code categorical variables
     sens_df = pd.read_csv('dataset/adult_protected.csv')
     sens_cols = [str(c) for c in sens_df.columns if sens_df[c][0] == 1]
-    print('sensitive features: {}'.format(sens_cols))
     sens_dict = {c: 1 if c in sens_cols else 0 for c in df.columns}
-    df, sens_dict = one_hot_code(df, sens_dict)
-    sens_names = [key for key in sens_dict.keys() if sens_dict[key] == 1]
-    print('there are {} sensitive features including derivative features'.format(len(sens_names)))
-    x_prime = df[sens_names]
-    return df, x_prime, y
+    X, sens_dict = one_hot_code(df, sens_dict)
 
-
-
-
+    if scale_and_center:
+        X = center(X)
+        X = standardize(X)
+    if intercept:
+        X = add_intercept(X)
+    if normalize:
+        X = normalize_rows(X)
+    return X, pd.Series(y)
 
 
 def clean_adultshort():

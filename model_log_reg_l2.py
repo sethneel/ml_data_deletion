@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import clean_data
+import pdb
 
 class LogisticReg:
     """Implement Algorithm 1 from Descent-to-Delete"""
@@ -14,7 +15,7 @@ class LogisticReg:
     def gradient_loss_fn(self, X, y):
         n = X.shape[0]
         log_grad = np.dot(np.diag(-y/(1 + np.exp(y*np.dot(X, self.theta)))), X)
-        log_grad_sum = 1.0/n*np.dot(np.ones(n), log_grad)
+        log_grad_sum = np.dot(np.ones(n), log_grad)
         reg_grad = 2*self.l2_penalty*self.theta
         return reg_grad + log_grad_sum
 
@@ -33,7 +34,6 @@ class LogisticReg:
     def predict(self, X):
         probs = 1.0/(1+np.exp(-np.dot(X, self.theta)))
         return pd.Series([1 if p >= .5 else -1 for p in probs])
-
 
 if __name__ == "__main__":
     X, y = clean_data.clean_communities(scale_and_center=True, intercept=True, normalize=True)
