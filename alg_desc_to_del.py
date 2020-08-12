@@ -20,6 +20,7 @@ class DescDel:
         self.y_test = y_test
         self.models = []
         self.noisy_models = []
+        self.scratch_models = []
         self.epsilon = epsilon
         self.delta = delta
         self.sigma = 0
@@ -30,16 +31,20 @@ class DescDel:
         self.start_grad_iter = start_grad_iter
         self.datadim = X_train.shape[1]
         self.model_accuracies = []
+        self.scratch_model_accuracies = []
         self.l2_penalty = l2_penalty
 
     def update(self, update):
         """Given update, output retrained model, noisy and secret state"""
         self.update_data_set(update)
         new_model = self.train(iters=self.update_grad_iter, init=self.models[-1])
+        new_model_scratch = self.train(iters=self.update_grad_iter, init=None)
         noisy_model = self.publish(new_model)
         self.models.append(new_model)
         self.noisy_models.append(noisy_model)
+        self.scratch_models.append(new_model_scratch)
         self.model_accuracies.append(self.get_test_accuracy(noisy_model))
+        self.scratch_model_accuracies.append(self.get_test_accuracy(new_model_scratch))
 
     def set_sigma(self):
         """Compute the noise level as a fn of (eps, delta)."""
@@ -60,10 +65,8 @@ class DescDel:
             par = np.random.normal(0,1, self.datadim)
             par = par/(np.sqrt(np.sum(np.power(par, 2))))
             model = self.model_class(par, l2_penalty=self.l2_penalty)
-
         for _ in range(iters):
             model.proj_gradient_step(self.X_u, self.y_u)
-
         return model
 
     def publish(self, model):
@@ -89,10 +92,12 @@ class DescDel:
         # initialize noise level
         initial_model = self.train(iters=self.start_grad_iter, init=None)
         self.models.append(initial_model)
-        # initial model is not noisy
-        self.noisy_models.append(initial_model)
-        self.model_accuracies.append(self.get_test_accuracy(initial_model))
         self.set_sigma()
+        initial_noisy_model = self.publish(initial_model)
+        self.noisy_models.append(initial_noisy_model)
+        self.scratch_models.append(initial_model)
+        self.model_accuracies.append(self.get_test_accuracy(initial_noisy_model))
+        self.scratch_model_accuracies.append(self.get_test_accuracy(initial_model))
         for update in self.update_sequence:
             self.update(update)
 

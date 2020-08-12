@@ -18,7 +18,7 @@ class LogisticReg:
         log_grad = np.dot(np.diag(-y/(1 + np.exp(y*np.dot(X, self.theta)))), X)
         log_grad_sum = np.dot(np.ones(n), log_grad)
         reg_grad = 2*self.l2_penalty*self.theta
-        return reg_grad + log_grad_sum
+        return (reg_grad + (1/n)*log_grad_sum)
 
     def get_constants(self):
         # must have ||theta|| <= 1
@@ -26,14 +26,18 @@ class LogisticReg:
 
     def proj_gradient_step(self, X, y):
 
-        eta = 2.0/(self.constants_dict['strong'] + self.constants_dict['smooth'])
+        #eta = 2.0/(self.constants_dict['strong'] + self.constants_dict['smooth'])
+        eta = 0.5
+        current_theta = self.theta
         grad = self.gradient_loss_fn(X, y)
         # gradient update
-        next_theta = copy.deepcopy(self.theta)-eta*grad
+        #next_theta = copy.deepcopy(self.theta)-eta*grad
+        next_theta = current_theta - eta*grad
         if np.sum(np.power(next_theta, 2)) > 1:
             next_theta = next_theta/(clean_data.l2_norm(next_theta))
-        if np.sum(self.theta == next_theta) == len(next_theta):
-            pdb.set_trace()
+        #if np.sum(self.theta == next_theta) == len(next_theta):
+            #pdb.set_trace()
+        #    print('equal')
         self.theta = next_theta
 
     def predict(self, X):
