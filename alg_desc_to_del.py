@@ -91,13 +91,14 @@ class DescDel:
     def run(self):
         # initialize noise level
         initial_model = self.train(iters=self.start_grad_iter, init=None)
+        initial_scratch_model = self.train(iters=self.update_grad_iter, init=None)
         self.models.append(initial_model)
         self.set_sigma()
         initial_noisy_model = self.publish(initial_model)
         self.noisy_models.append(initial_noisy_model)
-        self.scratch_models.append(initial_model)
+        self.scratch_models.append(initial_scratch_model)
         self.model_accuracies.append(self.get_test_accuracy(initial_noisy_model))
-        self.scratch_model_accuracies.append(self.get_test_accuracy(initial_model))
+        self.scratch_model_accuracies.append(self.get_test_accuracy(initial_scratch_model))
         for update in self.update_sequence:
             self.update(update)
 
