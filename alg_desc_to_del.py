@@ -35,10 +35,7 @@ class DescDel:
     def update(self, update):
         """Given update, output retrained model, noisy and secret state"""
         self.update_data_set(update)
-        loss_fn_constants = self.models[-1].get_constants()
-        update_grad_iters = np.int(np.round(self.update_grad_iter + np.log(self.datadim*loss_fn_constants['strong']*len(self.y_u) /
-                                (2 * loss_fn_constants['lip']))/np.log(1/self.gamma)))
-        new_model = self.train(iters=update_grad_iters, init=self.models[-1])
+        new_model = self.train(iters=self.update_grad_iter, init=self.models[-1])
         noisy_model = self.publish(new_model)
         self.models.append(new_model)
         self.noisy_models.append(noisy_model)
@@ -80,13 +77,13 @@ class DescDel:
         self.y_u = self.y_u.reset_index(drop=True)
         if update[0] == '-':
             try:
-                self.X_u.drop(update[1])
-                self.y_u.drop(update[1])
+                self.X_u = self.X_u.drop(update[1])
+                self.y_u = self.y_u.drop(update[1])
             except:
                 pdb.set_trace()
         if update[0] == '+':
-            self.X_u.append(update[1])
-            self.y_u.append(update[2])
+            self.X_u = self.X_u.append(update[1])
+            self.y_u = self.y_u.append(update[2])
 
     def run(self):
         # initialize noise level
@@ -101,7 +98,7 @@ class DescDel:
 
     def get_test_accuracy(self, model):
         y_hat = model.predict(self.X_test)
-        return np.sum([np.array(y_hat) == np.array(self.y_test)])/len(self.y_test)
+        return np.float(np.sum([np.array(y_hat) == np.array(self.y_test)]))/np.float(len(self.y_test))
 
 
 

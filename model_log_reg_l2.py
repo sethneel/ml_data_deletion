@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import clean_data
 import pdb
+import copy
 
 class LogisticReg:
     """Implement Algorithm 1 from Descent-to-Delete"""
@@ -9,8 +10,8 @@ class LogisticReg:
     def __init__(self, theta, l2_penalty=.1):
         self.l2_penalty = l2_penalty
         self.theta = theta
-        self.constants_dict = {'strong': self.l2_penalty, 'smooth': 1/4 + self.l2_penalty, 'diameter': 2,
-                               'lip': 1 + 2*self.l2_penalty}
+        self.constants_dict = {'strong': self.l2_penalty, 'smooth': .25 + self.l2_penalty, 'diameter': 2.0,
+                               'lip': 1.0 + 2.0*self.l2_penalty}
 
     def gradient_loss_fn(self, X, y):
         n = X.shape[0]
@@ -24,12 +25,16 @@ class LogisticReg:
         return self.constants_dict
 
     def proj_gradient_step(self, X, y):
-        """Project onto norm <= 1"""
-        eta = 2/(self.constants_dict['strong'] + self.constants_dict['smooth'])
+
+        eta = 2.0/(self.constants_dict['strong'] + self.constants_dict['smooth'])
         grad = self.gradient_loss_fn(X, y)
-        self.theta = self.theta-eta*grad
-        if np.sum(np.power(self.theta, 2)) > 1:
-            self.theta = self.theta/(clean_data.l2_norm(self.theta))
+        # gradient update
+        next_theta = copy.deepcopy(self.theta)-eta*grad
+        if np.sum(np.power(next_theta, 2)) > 1:
+            next_theta = next_theta/(clean_data.l2_norm(next_theta))
+        if np.sum(self.theta == next_theta) == len(next_theta):
+            pdb.set_trace()
+        self.theta = next_theta
 
     def predict(self, X):
         probs = 1.0/(1+np.exp(-np.dot(X, self.theta)))

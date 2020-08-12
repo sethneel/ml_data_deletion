@@ -2,7 +2,7 @@ from clean_data import *
 from sklearn import model_selection
 from alg_desc_to_del import *
 from model_log_reg_l2 import *
-X, y = clean_lawschool(scale_and_center=True, normalize=True, intercept=True)
+X, y = clean_adult(scale_and_center=True, normalize=True, intercept=True)
 X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=.1)
 n_deletions = 2
 del_indices = np.random.randint(0, X_train.shape[0], size=n_deletions)
@@ -10,7 +10,7 @@ u_seq = [('-', ind,  X_train.iloc[ind], y_train.iloc[ind]) for ind in del_indice
 X_train.reset_index(drop=True)
 y_train.reset_index(drop=True)
 desc_del_algorithm = DescDel(X_train, X_test, y_train, y_test, epsilon=1.0, delta=1.0/np.power(len(y_train), 2),
-                        update_grad_iter=100, model_class=LogisticReg, start_grad_iter=1000, update_sequence=u_seq,
+                        update_grad_iter=100, model_class=LogisticReg, start_grad_iter=100, update_sequence=u_seq,
                         l2_penalty=.01)
 
 desc_del_algorithm.run()
