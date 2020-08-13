@@ -10,14 +10,14 @@ class LogisticReg:
     def __init__(self, theta, l2_penalty=.1):
         self.l2_penalty = l2_penalty
         self.theta = theta
-        self.constants_dict = {'strong': self.l2_penalty, 'smooth': .25 + self.l2_penalty, 'diameter': 2.0,
-                               'lip': 1.0 + 2.0*self.l2_penalty}
+        self.constants_dict = {'strong': self.l2_penalty, 'smooth': 4 - self.l2_penalty, 'diameter': 2.0,
+                               'lip': 1.0 + self.l2_penalty}
 
     def gradient_loss_fn(self, X, y):
         n = X.shape[0]
         log_grad = np.dot(np.diag(-y/(1 + np.exp(y*np.dot(X, self.theta)))), X)
         log_grad_sum = np.dot(np.ones(n), log_grad)
-        reg_grad = 2*self.l2_penalty*self.theta
+        reg_grad = self.l2_penalty*self.theta
         return (reg_grad + (1/n)*log_grad_sum)
 
     def get_constants(self):
@@ -26,8 +26,8 @@ class LogisticReg:
 
     def proj_gradient_step(self, X, y):
 
-        #eta = 2.0/(self.constants_dict['strong'] + self.constants_dict['smooth'])
-        eta = 0.5
+        eta = 2.0/(self.constants_dict['strong'] + self.constants_dict['smooth'])
+        #eta = 0.5
         current_theta = self.theta
         grad = self.gradient_loss_fn(X, y)
         # gradient update

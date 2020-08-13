@@ -48,9 +48,11 @@ class DescDel:
 
     def set_sigma(self):
         """Compute the noise level as a fn of (eps, delta)."""
+        eta = 0.5
         loss_fn_constants = self.models[-1].get_constants()
         self.gamma = (loss_fn_constants['smooth']-loss_fn_constants['strong'])/(loss_fn_constants['strong'] +
                                                                                      loss_fn_constants['smooth'])
+        #self.gamma = 1 - eta*loss_fn_constants['strong']
         sigma_numerator = 4*np.sqrt(2)*loss_fn_constants['lip']*np.power(self.gamma, self.update_grad_iter)
         sigma_denominator = (loss_fn_constants['strong'] * len(self.y_train) *
                              (1-np.power(self.gamma, self.update_grad_iter)))*((np.sqrt(np.log(1/self.delta) + self.epsilon)) -
