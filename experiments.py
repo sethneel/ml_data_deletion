@@ -40,7 +40,7 @@ u_seq = [('-', ind,  X_train.iloc[ind], y_train.iloc[ind]) for ind in del_indice
 
 unlearning_acc = []
 retrain_acc = []
-L = 100
+L = 1
 for i in range(L):
     print(i)
     desc_del_algorithm = DescDel(X_train, X_test, y_train, y_test, epsilon=10.0, delta=1.0/np.power(len(y_train), 2),
@@ -68,10 +68,10 @@ plt.plot(retrain, color='red', label='retraining')
 #plt.xticks(range(n_deletions+1))
 plt.xlabel('update number')
 plt.ylabel('accuracy')
-plt.legend(loc = 'best', prop={'size': 10})
+plt.legend(loc='best', prop={'size': 10})
 #UPDATE
 plt.title(r'adult dataset, $\epsilon = 10$, $\mathcal{I} = 25$')
-plt.savefig('figures/adult_10_25_25.png', dpi = 300)
+plt.savefig('figures/adult_10_25_25.png', dpi=300)
 plt.show()
 
 #thetas = [m.theta for m in desc_del_algorithm.models]
