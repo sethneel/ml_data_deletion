@@ -1,13 +1,12 @@
-import pdb
 from clean_data import *
 from sklearn import model_selection
 import model_log_reg_l2
-
+import pdb
 
 class FedDescDel:
     """Implement Algorithm 1 from Descent-to-Delete"""
     def __init__(self, X_train, X_test, y_train, y_test, epsilon, delta, update_grad_iter, model_class, start_grad_iter,
-                 update_sequence, B,  l2_penalty=0.0):
+                 update_sequence, B, data_scale=1.0, l2_penalty=0.0):
         """
         sigma: noise added to guarantee (eps, delta) deletion
         loss_fn_constants: smoothness, strong convexity, lipschitz constant
@@ -18,6 +17,7 @@ class FedDescDel:
         self.X_train = X_train
         self.X_u = X_train
         self.B = B
+        self.D = data_scale
         # dictionary where entry k is the indices in the kth partition
         self.K = int(np.ceil(np.sqrt(B)))
         self.bootstrap_size = int(float(B)/float(self.K))
@@ -45,7 +45,7 @@ class FedDescDel:
         self.scratch_model_accuracies = []
         self.l2_penalty = l2_penalty
 
-    def update(self, update, iteration=None):
+    def update(self, update, grad_steps):
         """Given update, output retrained model, noisy and secret state"""
         # update bootstrap sample
         print("computing reservoir sampling step")
@@ -53,12 +53,13 @@ class FedDescDel:
         # retrain on updated partitions - update models
         print("retraining on updated partitions")
         new_model_dict = self.train_partitions(updated_partitions,
-                                               init_dict=self.models[-1], iteration=iteration)
+                                               init_dict=self.models[-1], train_grad_steps=grad_steps)
         print("saving test accuracy")
         noisy_model = self.publish(new_model_dict)
         deletion_model_acc = self.get_test_accuracy(noisy_model)
         self.model_accuracies.append(deletion_model_acc)
         print(f'finished with deletion: last accuracy {deletion_model_acc}')
+
     def set_sigma(self):
         """Compute the noise level as a fn of (eps, delta)."""
 
@@ -89,17 +90,37 @@ class FedDescDel:
             model.proj_gradient_step(X_u, y_u)
         return model
 
-    def get_training_iters(self, iteration):
-        if iteration:
-            n = self.X_u.shape[0]
-            e = np.log(self.B) / np.log(n)
-            t_i = int(np.round(10*np.log(2*iteration/self.delta)*(self.update_grad_iter + np.power(n, (3*e-4)/2) * np.log(1 + 10 *
-                                                    iteration * np.log(2*iteration/self.delta))/np.log(1.0/self.gamma))))
-            return t_i
-        else:
-            return self.update_grad_iter
+    def get_grad_steps_per_round_iter(self):
+        """Returns an iterator that yields the number of iterations
+            at each round. At t = 0 this is the initial training iterations.
+        """
 
-    def train_partitions(self, updated_partitions, init_dict, iteration, train_grad_steps=None):
+        n = self.X_u.shape[0]
+        e = np.log(self.B) / np.log(n)
+        par = np.random.normal(0, 1, self.datadim)
+        par = par / (np.sqrt(np.sum(np.power(par, 2))))
+        model = self.model_class(par, l2_penalty=self.l2_penalty)
+        loss_fn_constants = model.get_constants()
+        self.gamma = (loss_fn_constants['smooth'] - loss_fn_constants['strong']) / (loss_fn_constants['strong'] +
+                                                                                    loss_fn_constants['smooth'])
+
+        if e < 1 or e > 4 / 3:
+            raise Exception("Bootstrap sample size must be in [n, n^4/3]")
+
+        iteration = 0
+        while True:
+            if iteration == 0:
+                t_part_1 = self.update_grad_iter*np.power(n, (3*e-4)/2)
+                t_part_2 = np.log(self.D*loss_fn_constants['strong']/loss_fn_constants['lip'] *
+                                  np.power(n, e)*(1 + 10*np.log(2.0/self.delta)))/np.log(1/self.gamma)
+                yield int(np.round(t_part_1 + t_part_2))
+            else:
+                t_i = int(np.round(10*np.log(2*iteration/self.delta)*(self.update_grad_iter + np.power(n, (3*e-4)/2) *
+                        np.log(1 + 10 * iteration * np.log(2*iteration/self.delta)) / np.log(1.0/self.gamma))))
+                yield t_i
+            iteration += 1
+
+    def train_partitions(self, updated_partitions, init_dict, train_grad_steps=None):
         # if all partitions are being updated initialize with empty
         if len(updated_partitions) != self.K:
             new_model_dict = self.models[-1]
@@ -111,9 +132,6 @@ class FedDescDel:
             # use .loc instead of .iloc since selecting by index not row #
             x_part = self.X_u.loc[self.bootstrap[part], :]
             y_part = self.y_u.loc[self.bootstrap[part]]
-            if not train_grad_steps:
-                train_grad_steps = self.get_training_iters(iteration)
-
             new_model_dict[part] = self.train(x_part, y_part,train_grad_steps, init=init_dict[part])
             print(f'ending retraining on partition {part}')
         self.models.append(new_model_dict)
@@ -167,15 +185,17 @@ class FedDescDel:
 
     def run(self):
         # train on all partitions and return initial model dict (also append to models)
-        init_model_dict = self.train_partitions(updated_partitions=[f'{x}' for x in range(self.K)], iteration=1,
-                            init_dict={f'{x}': None for x in range(self.K)}, train_grad_steps=self.start_grad_iter)
+        get_grad_steps = self.get_grad_steps_per_round_iter()
+        training_grad_steps = next(get_grad_steps)
+        init_model_dict = self.train_partitions(updated_partitions=[f'{x}' for x in range(self.K)],
+                            init_dict={f'{x}': None for x in range(self.K)}, train_grad_steps=training_grad_steps)
         self.set_sigma()
         initial_noisy_model = self.publish(init_model_dict)
         self.noisy_models.append(initial_noisy_model)
         self.model_accuracies.append(self.get_test_accuracy(initial_noisy_model))
-        for iter, update in enumerate(self.update_sequence):
+        for update in self.update_sequence:
             print("starting update...")
-            self.update(update, iteration=iter)
+            self.update(update, grad_steps=next(get_grad_steps))
 
     def get_test_accuracy(self, model):
         y_hat = model.predict(self.X_test)
@@ -192,7 +212,7 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=.2)
     # subsample to run quickly
     n = 300
-    X_train = X_train.iloc[0:n,]
+    X_train = X_train.iloc[0:n, ]
     y_train = y_train.iloc[0:n, ]
     X_train = X_train.reset_index(drop=True)
     y_train = y_train.reset_index(drop=True)
@@ -200,7 +220,7 @@ if __name__ == "__main__":
     # set bootstrap size sample in [n, n^4/3] per theory
     B = 1000
     # scale of the data (x is normalized)
-    D = 1
+    data_scale = 1.0
     # gradient iterations for training
     start_grad_iter = 1000
     # n gradients per update (log i* allowed at round i)
@@ -215,6 +235,6 @@ if __name__ == "__main__":
     fed_algorithm = FedDescDel(X_train, X_test, y_train, y_test, epsilon=10.0,
                                delta=1.0 / np.power(len(y_train), 2), update_grad_iter=update_grad_iter,
                                model_class=model_log_reg_l2.LogisticReg, start_grad_iter=1000,
-                               update_sequence=u_seq, B=B, l2_penalty=0.05)
+                               update_sequence=u_seq, B=B, data_scale=data_scale, l2_penalty=0.05)
     fed_algorithm.run()
 
