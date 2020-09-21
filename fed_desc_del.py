@@ -1,11 +1,11 @@
 from clean_data import *
 from sklearn import model_selection
 import model_log_reg_l2
-import pdb
+
 
 class FedDescDel:
     """Implement Algorithm 1 from Descent-to-Delete"""
-    def __init__(self, X_train, X_test, y_train, y_test, epsilon, delta, update_grad_iter, model_class, start_grad_iter,
+    def __init__(self, X_train, X_test, y_train, y_test, epsilon, delta, update_grad_iter, model_class,
                  update_sequence, B, data_scale=1.0, l2_penalty=0.0):
         """
         sigma: noise added to guarantee (eps, delta) deletion
@@ -39,7 +39,6 @@ class FedDescDel:
         self.model_class = model_class
         self.update_sequence = update_sequence
         self.update_grad_iter = update_grad_iter
-        self.start_grad_iter = start_grad_iter
         self.datadim = X_train.shape[1]
         self.model_accuracies = []
         self.scratch_model_accuracies = []
@@ -210,19 +209,13 @@ def remove(index_to_remove, index_array, sample_indices):
 if __name__ == "__main__":
     X, y = clean_adult(scale_and_center=True, normalize=True, intercept=True)
     X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=.2)
-    # subsample to run quickly
-    n = 300
-    X_train = X_train.iloc[0:n, ]
-    y_train = y_train.iloc[0:n, ]
     X_train = X_train.reset_index(drop=True)
     y_train = y_train.reset_index(drop=True)
-
+    n = X_train.shape[0]
     # set bootstrap size sample in [n, n^4/3] per theory
-    B = 1000
+    B = np.power(n, 7.0/6.0)
     # scale of the data (x is normalized)
     data_scale = 1.0
-    # gradient iterations for training
-    start_grad_iter = 1000
     # n gradients per update (log i* allowed at round i)
     update_grad_iter = 25
     n_deletions = 25
@@ -234,7 +227,7 @@ if __name__ == "__main__":
     # instantiate algorithm
     fed_algorithm = FedDescDel(X_train, X_test, y_train, y_test, epsilon=10.0,
                                delta=1.0 / np.power(len(y_train), 2), update_grad_iter=update_grad_iter,
-                               model_class=model_log_reg_l2.LogisticReg, start_grad_iter=1000,
+                               model_class=model_log_reg_l2.LogisticReg,
                                update_sequence=u_seq, B=B, data_scale=data_scale, l2_penalty=0.05)
     fed_algorithm.run()
 
