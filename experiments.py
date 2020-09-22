@@ -13,7 +13,7 @@ n = X_train.shape[0]
 
 # set hyper parameters
 # set bootstrap size sample in [n, n^4/3] per theory
-B = np.power(n, 7.0 / 6.0)
+B = n
 # scale of the data (x is normalized)
 data_scale = 1.0
 update_grad_iter = 25
@@ -31,7 +31,7 @@ model = model_log_reg_l2.LogisticReg(par, l2_penalty=l2)
 loss_fn_constants = model.get_constants()
 gamma = (loss_fn_constants['smooth'] - loss_fn_constants['strong']) / (loss_fn_constants['strong'] +
                                                                             loss_fn_constants['smooth'])
-t_part_1 = update_grad_iter * np.power(n, (3 * e - 4) / 2)
+t_part_1 = update_grad_iter * np.power(n, (4-3*e) / 2)
 t_part_2 = np.log(data_scale * loss_fn_constants['strong'] / loss_fn_constants['lip'] *
                           np.power(n, e) * (1 + 10 * np.log(2.0 / delta))) / np.log(1 / gamma)
 start_grad_iter_distributed = int(np.round(t_part_1 + t_part_2))

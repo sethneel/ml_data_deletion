@@ -1,7 +1,7 @@
 from clean_data import *
 from sklearn import model_selection
 import model_log_reg_l2
-
+import pdb
 
 class FedDescDel:
     """Implement Algorithm 1 from Descent-to-Delete"""
@@ -82,7 +82,7 @@ class FedDescDel:
         if init:
             model = self.model_class(init.theta, l2_penalty=self.l2_penalty)
         else:
-            par = np.random.normal(0,1, self.datadim)
+            par = np.random.normal(0, 1, self.datadim)
             par = par/(np.sqrt(np.sum(np.power(par, 2))))
             model = self.model_class(par, l2_penalty=self.l2_penalty)
         for _ in range(iters):
@@ -105,18 +105,19 @@ class FedDescDel:
 
         if e < 1 or e > 4 / 3:
             raise Exception("Bootstrap sample size must be in [n, n^4/3]")
-
         iteration = 0
         while True:
             if iteration == 0:
-                t_part_1 = self.update_grad_iter*np.power(n, (3*e-4)/2)
+                t_part_1 = self.update_grad_iter*np.power(n, (4-3*e)/2)
                 t_part_2 = np.log(self.D*loss_fn_constants['strong']/loss_fn_constants['lip'] *
                                   np.power(n, e)*(1 + 10*np.log(2.0/self.delta)))/np.log(1/self.gamma)
-                yield int(np.round(t_part_1 + t_part_2))
+                t_i = int(np.round(t_part_1 + t_part_2))
+
             else:
                 t_i = int(np.round(10*np.log(2*iteration/self.delta)*(self.update_grad_iter + np.power(n, (3*e-4)/2) *
                         np.log(1 + 10 * iteration * np.log(2*iteration/self.delta)) / np.log(1.0/self.gamma))))
-                yield t_i
+            print(f'training for {t_i} iterations')
+            yield t_i
             iteration += 1
 
     def train_partitions(self, updated_partitions, init_dict, train_grad_steps=None):
@@ -192,9 +193,11 @@ class FedDescDel:
         initial_noisy_model = self.publish(init_model_dict)
         self.noisy_models.append(initial_noisy_model)
         self.model_accuracies.append(self.get_test_accuracy(initial_noisy_model))
+
         for update in self.update_sequence:
             print("starting update...")
             self.update(update, grad_steps=next(get_grad_steps))
+
 
     def get_test_accuracy(self, model):
         y_hat = model.predict(self.X_test)
