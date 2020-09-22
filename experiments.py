@@ -46,16 +46,21 @@ n_deletions = 25
 del_indices = np.random.randint(0, X_train.shape[0], size=n_deletions)
 u_seq = [('-', ind,  X_train.iloc[ind], y_train.iloc[ind]) for ind in del_indices]
 
+
+
 # instantiate algorithms
-desc_del_algorithm = DescDel(X_train, X_test, y_train, y_test, epsilon=epsilon, delta=delta,
-                        update_grad_iter=update_grad_iter, model_class=LogisticReg, start_grad_iter=start_grad_iter,
-                             update_sequence=u_seq,l2_penalty=l2)
-
-
 fed_algorithm = FedDescDel(X_train, X_test, y_train, y_test, epsilon=10.0,
                                delta=1.0 / np.power(len(y_train), 2), update_grad_iter=update_grad_iter,
                                model_class=model_log_reg_l2.LogisticReg,
                                update_sequence=u_seq, B=B, data_scale=data_scale, l2_penalty=0.05)
+
+
+# make round iterations the same
+grad_steps_iter = fed_algorithm.get_grad_steps_per_round_iter()
+# instantiate algorithms
+desc_del_algorithm = DescDel(X_train, X_test, y_train, y_test, epsilon=epsilon, delta=delta,
+                        grad_iter_generator=grad_steps_iter, model_class=LogisticReg,
+                             update_sequence=u_seq,l2_penalty=l2)
 
 # run the algorithms
 desc_del_algorithm.run()

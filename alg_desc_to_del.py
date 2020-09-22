@@ -3,7 +3,7 @@ import pdb
 
 class DescDel:
     """Implement Algorithm 1 from Descent-to-Delete"""
-    def __init__(self, X_train, X_test, y_train, y_test, epsilon, delta, update_grad_iter, model_class, start_grad_iter,
+    def __init__(self, X_train, X_test, y_train, y_test, epsilon, delta, grad_iter_generator, model_class,
                  update_sequence, l2_penalty=0):
         """
         sigma: noise added to guarantee (eps, delta) deletion
@@ -27,18 +27,18 @@ class DescDel:
         self.gamma = 0
         self.model_class = model_class
         self.update_sequence = update_sequence
-        self.update_grad_iter = update_grad_iter
-        self.start_grad_iter = start_grad_iter
+        self.update_grad_iter = grad_iter_generator
         self.datadim = X_train.shape[1]
         self.model_accuracies = []
         self.scratch_model_accuracies = []
         self.l2_penalty = l2_penalty
 
-    def update(self, update):
+    def update(self, update, grad_iters):
         """Given update, output retrained model, noisy and secret state"""
         self.update_data_set(update)
-        new_model = self.train(iters=self.update_grad_iter, init=self.models[-1])
-        new_model_scratch = self.train(iters=self.update_grad_iter, init=None)
+        new_model = self.train(iters=grad_iters, init=self.models[-1])
+        new_model_scratch = self.train(iters=grad_iters, init=None)
+        self.set_sigma(grad_iters)
         noisy_model = self.publish(new_model)
         self.models.append(new_model)
         self.noisy_models.append(noisy_model)
@@ -46,16 +46,16 @@ class DescDel:
         self.model_accuracies.append(self.get_test_accuracy(noisy_model))
         self.scratch_model_accuracies.append(self.get_test_accuracy(new_model_scratch))
 
-    def set_sigma(self):
+    def set_sigma(self, update_iters):
         """Compute the noise level as a fn of (eps, delta)."""
         eta = 0.5
         loss_fn_constants = self.models[-1].get_constants()
         self.gamma = (loss_fn_constants['smooth']-loss_fn_constants['strong'])/(loss_fn_constants['strong'] +
                                                                                      loss_fn_constants['smooth'])
         #self.gamma = 1 - eta*loss_fn_constants['strong']
-        sigma_numerator = 4*np.sqrt(2)*loss_fn_constants['lip']*np.power(self.gamma, self.update_grad_iter)
+        sigma_numerator = 4*np.sqrt(2)*loss_fn_constants['lip']*np.power(self.gamma, update_iters)
         sigma_denominator = (loss_fn_constants['strong'] * len(self.y_train) *
-                             (1-np.power(self.gamma, self.update_grad_iter)))*((np.sqrt(np.log(1/self.delta) + self.epsilon)) -
+                             (1-np.power(self.gamma, update_iters)))*((np.sqrt(np.log(1/self.delta) + self.epsilon)) -
                                                                      np.sqrt(np.log(1/self.delta)))
         self.sigma = sigma_numerator/sigma_denominator
 
@@ -92,17 +92,19 @@ class DescDel:
 
     def run(self):
         # initialize noise level
-        initial_model = self.train(iters=self.start_grad_iter, init=None)
-        initial_scratch_model = self.train(iters=self.update_grad_iter, init=None)
+        iters = next(self.update_grad_iter)
+        initial_model = self.train(iters=iters, init=None)
+        initial_scratch_model = self.train(iters=iters, init=None)
         self.models.append(initial_model)
-        self.set_sigma()
+        self.set_sigma(iters)
         initial_noisy_model = self.publish(initial_model)
         self.noisy_models.append(initial_noisy_model)
         self.scratch_models.append(initial_scratch_model)
         self.model_accuracies.append(self.get_test_accuracy(initial_noisy_model))
         self.scratch_model_accuracies.append(self.get_test_accuracy(initial_scratch_model))
         for update in self.update_sequence:
-            self.update(update)
+            grad_iters = next(self.update_grad_iter)
+            self.update(update, grad_iters)
 
     def get_test_accuracy(self, model):
         y_hat = model.predict(self.X_test)
