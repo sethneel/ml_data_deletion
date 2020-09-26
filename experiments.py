@@ -6,7 +6,7 @@ import pickle
 
 
 X, y = clean_adult(scale_and_center=True, normalize=True, intercept=True)
-X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=.2)
+X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=.1)
 X_train = X_train.reset_index(drop=True)
 y_train = y_train.reset_index(drop=True)
 n = X_train.shape[0]
@@ -17,7 +17,7 @@ B = n
 # scale of the data (x is normalized)
 data_scale = 1.0
 update_grad_iter = 25
-epsilon = 10.0
+epsilon = 1.0
 delta = 1.0/np.power(len(y_train), 2)
 l2 = 0.05
 
@@ -42,7 +42,7 @@ start_grad_iter = int(np.max([start_grad_iter_distributed, start_grad_iter_desc]
 
 
 # create deletion sequence
-n_deletions = 25
+n_deletions = 20
 del_indices = np.random.randint(0, X_train.shape[0], size=n_deletions)
 u_seq = [('-', ind,  X_train.iloc[ind], y_train.iloc[ind]) for ind in del_indices]
 
@@ -68,7 +68,7 @@ fed_algorithm.run()
 
 # plot accuracies as a function of iteration
 desc_del_acc = (np.array(desc_del_algorithm.model_accuracies))
-retrain_acc = np.array(desc_del_algorithm.scratch_model_accuracies)
+retrain_acc = np.array(desc_del_algorithm.retrain_model_accuracies)
 dist_del_acc = np.array(fed_algorithm.model_accuracies)
 
 #UPDATE

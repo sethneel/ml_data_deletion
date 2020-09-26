@@ -41,7 +41,7 @@ class FedDescDel:
         self.update_grad_iter = update_grad_iter
         self.datadim = X_train.shape[1]
         self.model_accuracies = []
-        self.scratch_model_accuracies = []
+        self.retrain_model_accuracies = []
         self.l2_penalty = l2_penalty
 
     def update(self, update, grad_steps):
@@ -51,8 +51,10 @@ class FedDescDel:
         updated_partitions = self.reservoir_sampling_update(update)
         # retrain on updated partitions - update models
         print("retraining on updated partitions")
+        # we get grad_steps on dataset of full size, hence K*get_grad_steps/updated_partitions
+        part_grad_steps = grad_steps if len(updated_partitions) == 0 else grad_steps*self.K/len(updated_partitions)
         new_model_dict = self.train_partitions(updated_partitions,
-                                               init_dict=self.models[-1], train_grad_steps=grad_steps)
+                                               init_dict=self.models[-1], train_grad_steps=part_grad_steps)
         print("saving test accuracy")
         noisy_model = self.publish(new_model_dict)
         deletion_model_acc = self.get_test_accuracy(noisy_model)

@@ -20,7 +20,7 @@ class DescDel:
         self.y_test = y_test
         self.models = []
         self.noisy_models = []
-        self.scratch_models = []
+        self.retrain_models = []
         self.epsilon = epsilon
         self.delta = delta
         self.sigma = 0
@@ -30,21 +30,24 @@ class DescDel:
         self.update_grad_iter = grad_iter_generator
         self.datadim = X_train.shape[1]
         self.model_accuracies = []
-        self.scratch_model_accuracies = []
+        self.retrain_model_accuracies = []
         self.l2_penalty = l2_penalty
 
     def update(self, update, grad_iters):
         """Given update, output retrained model, noisy and secret state"""
         self.update_data_set(update)
         new_model = self.train(iters=grad_iters, init=self.models[-1])
-        new_model_scratch = self.train(iters=grad_iters, init=None)
+        new_model_retrain = self.train(iters=grad_iters, init=None)
         self.set_sigma(grad_iters)
         noisy_model = self.publish(new_model)
         self.models.append(new_model)
         self.noisy_models.append(noisy_model)
-        self.scratch_models.append(new_model_scratch)
-        self.model_accuracies.append(self.get_test_accuracy(noisy_model))
-        self.scratch_model_accuracies.append(self.get_test_accuracy(new_model_scratch))
+        self.retrain_models.append(new_model_retrain)
+        deletion_model_acc = self.get_test_accuracy(noisy_model)
+        self.model_accuracies.append(deletion_model_acc)
+        retrain_model_acc = self.get_test_accuracy(new_model_retrain)
+        self.retrain_model_accuracies.append(retrain_model_acc)
+        print(f'finished with deletion: deletion accuracy {deletion_model_acc}, retrain accuracy: {retrain_model_acc}')
 
     def set_sigma(self, update_iters):
         """Compute the noise level as a fn of (eps, delta)."""
@@ -78,15 +81,13 @@ class DescDel:
 
     def update_data_set(self, update):
         """Update X_u, y_u with update (+, x, y) or (-, index, x, y)."""
-        self.X_u = self.X_u.reset_index(drop=True)
-        self.y_u = self.y_u.reset_index(drop=True)
         if update[0] == '-':
             try:
                 self.X_u = self.X_u.drop(update[1])
                 self.y_u = self.y_u.drop(update[1])
             except:
                 pdb.set_trace()
-        if update[0] == '+':
+        else:
             self.X_u = self.X_u.append(update[1])
             self.y_u = self.y_u.append(update[2])
 
@@ -94,14 +95,14 @@ class DescDel:
         # initialize noise level
         iters = next(self.update_grad_iter)
         initial_model = self.train(iters=iters, init=None)
-        initial_scratch_model = self.train(iters=iters, init=None)
+        initial_retrain_model = self.train(iters=iters, init=None)
         self.models.append(initial_model)
         self.set_sigma(iters)
         initial_noisy_model = self.publish(initial_model)
         self.noisy_models.append(initial_noisy_model)
-        self.scratch_models.append(initial_scratch_model)
+        self.retrain_models.append(initial_retrain_model)
         self.model_accuracies.append(self.get_test_accuracy(initial_noisy_model))
-        self.scratch_model_accuracies.append(self.get_test_accuracy(initial_scratch_model))
+        self.retrain_model_accuracies.append(self.get_test_accuracy(initial_retrain_model))
         for update in self.update_sequence:
             grad_iters = next(self.update_grad_iter)
             self.update(update, grad_iters)
