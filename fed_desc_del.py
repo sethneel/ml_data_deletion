@@ -52,7 +52,7 @@ class FedDescDel:
         # retrain on updated partitions - update models
         print("retraining on updated partitions")
         # we get grad_steps on dataset of full size, hence K*get_grad_steps/updated_partitions
-        part_grad_steps = grad_steps if len(updated_partitions) == 0 else grad_steps*self.K/len(updated_partitions)
+        part_grad_steps = grad_steps if len(updated_partitions) == 0 else int(np.round(grad_steps*self.K/len(updated_partitions)))
         new_model_dict = self.train_partitions(updated_partitions,
                                                init_dict=self.models[-1], train_grad_steps=part_grad_steps)
         print("saving test accuracy")
